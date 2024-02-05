@@ -2,138 +2,149 @@ import { Request, Response, response } from "express";
 import quizJSON from "./JSONData/quiz.json";
 import responseJSON from "./JSONData/response.json";
 import formatJSON from "./JSONData/format.json";
-import topicJSON from "./JSONData/topic.json";
 import sectionJSON from "./JSONData/section.json"
-import customItemsJSON from "./JSONData/custom-items.json"
+
+
 import { json } from "stream/consumers";
 
 const express = require("express");
-const path = require("path");
-const fs = require("fs");
 
-const router = express.Router();
+
+
 const app = express();
 
-const PORT: number = 3000;
+const PORT: number = 4000;
 
 app.use(express.json());
 
-app.post("/scores", (req: Request, res: Response) => {
+app.get("/scores", (req: Request, res: Response) => {
     const topic: [] = req.body.topic;
     const format: [] = req.body.format;
     const source: [] = req.body.source;
 
-    //* Function  for the static fields
-    function calulatePoints() {
-        let totalPointsQuiz, totalPointsNews, totalPointsGames = 0;
 
 
-        let flagQuiz = false;
-        let falgCustomSec = false;
-        for (let i = 0; i < topic.length; i++) {
+    //* Adding the initial scores to all sections
+    function calculatePoints() {
+        responseJSON.forEach((sec) => {
+            //@ts-ignore
+            sec.points = 0;
+        });
 
-            //!Calculation for the custom Section
-            customItemsJSON.forEach((cs) => {
-                //!Format 
-                if (cs.format_id === format[i]) {
-                    responseJSON.forEach((sec) => {
-                        sec.section_id === cs.section_id
+        //! Quiz section in topic 
+        quizJSON.forEach((topicQuiz) => {
+            let i = 0
+            if (topicQuiz.topic_id === topic[i]) {
+                responseJSON.forEach((secName) => {
+                    if (secName.section_type === "Quiz") {
                         //@ts-ignore
-                        sec.points += 10;
-                    })
-                }
-
-                //!Source
-                if (cs.source_id === source[i]) {
-                    responseJSON.forEach((sec) => {
-                        sec.section_id === cs.section_id
-                        //@ts-ignore
-                        sec.points += 10;
-                    })
-
-                }
-                //!Calulation for the custom section topic
-
-                let secId = cs.section_id;
-                sectionJSON.forEach((frj) => {
-                    if (frj.id === secId) {
-                        if (frj.topic_id === topic[i]) {
-                            falgCustomSec = true;
-                        }
+                        secName.points += 100;
                     }
-                })
-                if (falgCustomSec == true) {
-                    responseJSON.find((sec) => {
-                        if (sec.section_id === secId) {
+                });
+                i++;
+
+            }
+
+        });
+
+        for (let i = 0; i < topic.length; i++) {
+            //! Quiz in topic 
+            let pointsAddedQuiz = [];
+
+            //! News in topic 
+
+            responseJSON.forEach((key) => {
+                if (key.section_type === "news" && key.content.some(element => element.topic_id === topic[i])) {
+                    //@ts-ignore
+                    key.points += 100;
+                }
+            });
+
+
+            //! Format for all the rows
+            formatJSON.forEach((element) => {
+                if (element.id === format[i]) {
+                    let elementType = element.title;
+
+                    //! Conditions for quiz
+                    if (elementType === "Playing" || elementType === "Self-practicing") {
+                        responseJSON.forEach((secName) => {
+                            if (secName.section_type === "Quiz") {
+                                //@ts-ignore
+                                secName.points += 10;
+                            }
+                        });
+                    }
+                    //! Condition for news
+                    if (elementType === "Reading") {
+                        responseJSON.forEach((secName) => {
+                            if (secName.section_type === "news") {
+                                //@ts-ignore
+                                secName.points += 10;
+                            }
+                        });
+                    }
+                    //! Condition for games
+                    if (elementType === "Playing") {
+                        responseJSON.forEach((secName) => {
+                            if (secName.section_type === "games") {
+                                //@ts-ignore
+                                secName.points += 10;
+                            }
+                        });
+                    }
+                }
+            });
+
+            //! Customm Section  
+
+            responseJSON.forEach((sec) => {
+                if (sec.section_type === "Flight") {
+                    let secContent = sec.content;
+                    secContent.forEach((secCon) => {
+                        //!  Format 
+                        if (secCon.format_id === format[i]) {
                             //@ts-ignore
                             sec.points += 10;
                         }
+                        // //!Source 
+                        if (secCon.source_id === source[i]) {
+                            //@ts-ignore
+                            sec.points += 10;
+                        }
+
                     })
-                }
-            })
-            //!Calculation for Quiz in Topic
-            quizJSON.forEach(element => {
-                if (element.topic_id === topic[i]) {
-                    flagQuiz = true;
-                }
-                //!Flag for not adding the score every time
-                if (flagQuiz === true) {
-                    totalPointsQuiz += 100;
 
                 }
             })
-            formatJSON.forEach(element => {
-                //!Condition for format
-                if (element.id === format[i]) {
-                    //!Condition for quiz
-                    if (element.title === "Playing" || "Self-practicing") {
-                        totalPointsQuiz += 10
+
+            //! Topic 
+
+            for (let j = 0; j < sectionJSON.length; j++) {
+                responseJSON.forEach((secName) => {
+                    if (secName.section_type === "Flight") {
+                        sectionJSON.forEach((idFormat) => {
+                            if (idFormat.id === secName.section_id) {
+                                if (idFormat.topic_id === topic[j]) {
+                                    //@ts-ignore
+                                    secName.points += 100;
+                                }
+                            }
+                        })
                     }
-                    //!Condition for News
-                    if (element.title === "Reading") {
-                        totalPointsNews += 10;
-                    }
-                    //!COndition for Games
-                    if (element.title === "Playing") {
-                        totalPointsGames += 10;
-                    }
-                }
-            })
-            //!Calulation For News and Topic
-            responseJSON.find((key) => key.section_type === "news")?.content.forEach(element => {
-                if (element.topic_id === topic[i]) {
-                    let points = 100
-                    totalPointsNews += points;
-                }
-            })
-            flagQuiz = false;
+                })
+            }
         }
-        //!Adding the score to the respective sections
-        //?  Quiz
-        responseJSON.forEach((secName) => {
-            if (secName.section_type === "Quiz") {
-
-                secName.points = totalPointsQuiz;
-            }
-        })
-        //?  News
-        responseJSON.forEach((secName) => {
-            if (secName.section_type === "news") {
-                secName.points = totalPointsNews;
-            }
-        })
-        //?  Games
-        responseJSON.find((secName) => {
-            if (secName.section_type === "games") {
-                secName.points = totalPointsGames;
-            }
-        })
     }
 
+    calculatePoints();
+    //@ts-ignore
+    responseJSON.sort((x, y) => y.points - x.points)
 
-    calulatePoints();
+
     res.json(responseJSON);
 })
 
 
-app.listen(PORT, () => console.log("server started"))
+app.listen(PORT, () => console.log("sever started")
+)

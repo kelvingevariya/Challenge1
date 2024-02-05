@@ -37,18 +37,21 @@ app.post("/scores", (req: Request, res: Response) => {
                 //!Format 
                 if (cs.format_id === format[i]) {
                     responseJSON.forEach((sec) => {
-                        sec.section_id === cs.section_id
-                        //@ts-ignore
-                        sec.points += 10;
+                        if (sec.section_id === cs.section_id) {
+                            //@ts-ignore
+                            sec.points += 10;
+                        }
                     })
                 }
 
                 //!Source
                 if (cs.source_id === source[i]) {
                     responseJSON.forEach((sec) => {
-                        sec.section_id === cs.section_id
-                        //@ts-ignore
-                        sec.points += 10;
+                        if (
+                            sec.section_id === cs.section_id) {
+                            //@ts-ignore
+                            sec.points += 10;
+                        }
                     })
 
                 }

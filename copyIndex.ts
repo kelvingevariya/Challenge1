@@ -1,219 +1,132 @@
-import { Request, Response } from "express";
+import { Request, Response, response } from "express";
 import quizJSON from "./JSONData/quiz.json";
 import responseJSON from "./JSONData/response.json";
 import formatJSON from "./JSONData/format.json";
 import topicJSON from "./JSONData/topic.json";
+import sectionJSON from "./JSONData/section.json"
+import customItemsJSON from "./JSONData/custom-items.json"
 import { json } from "stream/consumers";
-
 
 const express = require("express");
 const path = require("path");
-const router = express.Router();
-
-
 const fs = require("fs");
 
+const router = express.Router();
 const app = express();
 
-
-
-
-
-const PORT: number = 3000;
-
+const PORT: number = 4000;
 
 app.use(express.json());
 
+app.post("/scores", (req: Request, res: Response) => {
+    const topic: [] = req.body.topic;
+    const format: [] = req.body.format;
+    const source: [] = req.body.source;
 
-//!api for quiz 
+    //* Function  for the static fields
 
-app.post("/quiz/:pm", (req: Request, res: Response) => {
-    const colmn = req.params.pm;
-    const idGet = req.body.ids;
-    let totalPoints = 0;
 
-    switch (colmn) {
-        //! topic column
-        case "topic": {
-            for (let i = 0; i < idGet.length; i++) {
-                quizJSON.forEach(element => {
-                    if (element.topic_id === idGet[i]) {
-                        let points = 100
-                        totalPoints += points
-                    }
-                })
-            }
-            responseJSON.forEach((secName) => {
-                if (secName.section_type === "Quiz") {
+    function calculatePoints() {
+        responseJSON.forEach((sec) => {
+            //@ts-ignore
+            sec.points = 0;
+        });
 
-                    secName.points = totalPoints;
-                }
-            })
-            console.log();
-
-            break;
-        }
-        case "format": {
-            for (let i = 0; i < idGet.length; i++) {
-                formatJSON.forEach(element => {
-                    if (element.id === idGet[i]) {
-                        if (element.title === "Playing" || "Self-practicing") {
-                            let points = 10
-                            totalPoints += points
+        for (let i = 0; i < topic.length; i++) {
+            quizJSON.forEach((topicQuiz) => {
+                if (topicQuiz.topic_id === topic[i]) {
+                    responseJSON.forEach((secName) => {
+                        if (secName.section_type === "Quiz") {
+                            //@ts-ignore
+                            secName.points += 100;
                         }
+                    });
+                }
+            });
+
+            responseJSON.forEach((key) => {
+                if (key.section_type === "news" && key.content.some(element => element.topic_id === topic[i])) {
+                    //@ts-ignore
+                    key.points += 100;
+                }
+            });
+
+            formatJSON.forEach((element) => {
+                if (element.id === format[i]) {
+                    let elementType = element.title;
+                    if (elementType === "Playing" || elementType === "Self-practicing") {
+                        responseJSON.forEach((secName) => {
+                            if (secName.section_type === "quiz") {
+                                //@ts-ignore
+                                secName.points += 10;
+                            }
+                        });
                     }
-                })
-            }
+                    if (elementType === "Reading") {
+                        responseJSON.forEach((secName) => {
+                            if (secName.section_type === "news") {
+                                //@ts-ignore
+                                secName.points += 10;
+                            }
+                        });
+                    }
+                    if (elementType === "Playing") {
+                        responseJSON.forEach((secName) => {
+                            if (secName.section_type === "games") {
+                                //@ts-ignore
+                                secName.points += 10;
+                            }
+                        });
+                    }
+                }
+            });
 
-            responseJSON.forEach((secName) => {
-                if (secName.section_type === "Quiz") {
+            sectionJSON.forEach((ids) => {
+                if (topic[i] === ids.topic_id) {
+                    let secId = ids.id;
+                    responseJSON.find((el) => {
+                        if (el.section_id === secId) {
+                            //@ts-ignore
+                            el.points += 100;
+                        }
+                    });
+                }
+            });
 
-                    secName.points = totalPoints;
+            customItemsJSON.forEach(element => {
+                while (source[i] === element.source_id) {
+                    responseJSON.forEach((key) => {
+                        if (element.section_id === key.section_id) {
+                            //@ts-ignore
+                            key.points += 10;
+                        }
+                    })
                 }
             })
-            /*  fs.writeFile("./JSONData/resonse.json", responseJSON, () => {
-                  console.log("File Updated");
-              })*/
-            res.end(JSON.stringify(responseJSON.find((key) => key.section_type === "Quiz")))
-            break;
+
+            customItemsJSON.forEach((sec) => {
+                if (format[i] === sec.source_id) {
+                    responseJSON.forEach((key) => {
+                        if (sec.section_id === key.section_id) {
+                            //@ts-ignore
+                            key.points += 10;
+                        }
+                    });
+                }
+            });
         }
-        case "source": {
-            res.send("No condition for Source")
-            break;
-        }
-        default:
-            break;
     }
+
+
+
+
+
+    calculatePoints();
+    //@ts-ignore
+    responseJSON.sort((x, y) => y.points - x.points)
+    res.json(responseJSON);
 })
 
 
-//!API FOR NEWS
-
-app.post("/news/:pm", (req: Request, res: Response) => {
-    const colmn = req.params.pm;
-    const idGet = req.body.ids;
-    let totalPoints = 0;
-
-    switch (colmn) {
-
-        //! topic column
-        case "topic": {
-
-            for (let i = 0; i < idGet.length; i++) {
-                responseJSON.find((key) => key.section_type === "news")?.content.forEach(element => {
-                    if (element.topic_id === idGet[i]) {
-
-                        totalPoints += 100;
-                    }
-                })
-            }
-
-            responseJSON.forEach((secName) => {
-                if (secName.section_type === "Quiz") {
-                    secName.points = totalPoints;
-                }
-            })
-            console.log(responseJSON.find((key) => key.section_type === "news"));
-            res.end()
-            break;
-        }
-        case "format": {
-
-            for (let i = 0; i < idGet.length; i++) {
-                formatJSON.forEach(element => {
-                    if (element.id === idGet[i]) {
-                        if (element.title === "Playing") {
-                            let points = 100
-                            totalPoints += points;
-                        }
-                    }
-                })
-            }
-
-            responseJSON.forEach((secName) => {
-                if (secName.section_type === "Quiz") {
-                    secName.points = totalPoints;
-                }
-            })
-            /*  fs.writeFile("./JSONData/resonse.json", responseJSON, () => {
-                  console.log("File Updated");
-              })*/
-            console.log(responseJSON.find((key) => key.section_type === "news"));
-            res.end()
-            break;
-        }
-
-        case "source": {
-            res.send("No condition for Source")
-            break;
-        }
-        default:
-            break;
-    }
-})
-
-
-//! API For GAMES
-
-app.post("/games/:pm", (req: Request, res: Response) => {
-    const colmn = req.params.pm;
-    const idGet = req.body.ids;
-    let totalPoints = 0;
-
-    switch (colmn) {
-        //! topic column
-        case "topic": {
-
-            break;
-        }
-        case "format": {
-
-            for (let i = 0; i < idGet.length; i++) {
-                formatJSON.forEach(element => {
-                    if (element.id === idGet[i]) {
-                        if (element.title === "Playing") {
-                            let points = 10
-
-                            totalPoints += points;
-                        }
-                    }
-                })
-            }
-            /*  fs.writeFile("./JSONData/resonse.json", responseJSON, () => {
-                  console.log("File Updated");
-              })*/
-
-            responseJSON.find((secName) => {
-                if (secName.section_type === "games") {
-                    let totalPoints = 0;
-                    secName.points = totalPoints;
-                }
-            })
-
-            console.log(responseJSON.find((key) => key.section_type === "games"));
-            res.end()
-            break;
-        }
-
-        case "source": {
-            res.send("No condition for Source")
-            break;
-        }
-        default:
-            break;
-    }
-})
-
-
-//! API FOR Custom Section 
-app.post("")
-
-
-
-
-
-
-
-app.listen(PORT, console.log("Server Stared on :" + `http://localhost:${PORT}`)
+app.listen(PORT, () => console.log("sever started")
 )
-
